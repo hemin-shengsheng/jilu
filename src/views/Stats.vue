@@ -87,9 +87,27 @@ async function loadTags() {
 
 async function loadStats() {
   if (window.electronAPI) {
-    // 获取所有记录来计算记录次数
-    const allRecords = await window.electronAPI.getRecords({});
-    recordCount.value = allRecords.length;
+    // 根据period计算日期范围
+    const filters = {};
+    const now = new Date();
+    
+    if (period.value === 'day') {
+      const today = now.toISOString().split('T')[0];
+      filters.startDate = today;
+      filters.endDate = today;
+    } else if (period.value === 'week') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      filters.startDate = weekAgo.toISOString().split('T')[0];
+      filters.endDate = now.toISOString().split('T')[0];
+    } else if (period.value === 'month') {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      filters.startDate = monthAgo.toISOString().split('T')[0];
+      filters.endDate = now.toISOString().split('T')[0];
+    }
+    
+    // 获取对应时间段的记录数量
+    const records = await window.electronAPI.getRecords(filters);
+    recordCount.value = records.length;
 
     const rawData = await window.electronAPI.getStatsByTags(period.value);
 

@@ -8,10 +8,18 @@ function getCustomUserDataPath() {
   let dataPath;
 
   try {
-    // 使用process.execPath获取实际的exe路径（portable模式下也能正确获取）
-    const exePath = process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe");
-    const exeDir = path.dirname(exePath);
-    dataPath = path.join(exeDir, "jilu-data");
+    // 判断是否为开发环境
+    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+    
+    if (isDev) {
+      // 开发环境：使用项目目录下的 jilu-data
+      dataPath = path.join(process.cwd(), 'jilu-data');
+    } else {
+      // 生产环境：使用 exe 同级目录
+      const exePath = process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe");
+      const exeDir = path.dirname(exePath);
+      dataPath = path.join(exeDir, "jilu-data");
+    }
 
     // 测试是否有写入权限
     if (!fs.existsSync(dataPath)) {
