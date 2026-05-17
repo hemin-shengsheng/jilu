@@ -11,9 +11,14 @@
 - 🎯 **目标提醒**：设置每日目标时长，桌面通知提醒
 - 💾 **本地存储**：所有数据存储在本地，保护隐私（在点击.exe后会在同级目录下生成jilu-data文件夹，数据都在里面，不占用C盘位置）
 
+版本更新：只需要下载新的zip压缩包解压后替换旧文件，原本数据文件不要动它
+
 ## 页面展示
 
-占个位，我使用一段时间后再截图放在这里（嘿嘿）
+<img src="./public/timer.jpg" width="600">
+<img src="./public/records.jpg" width="600">
+<img src="./public/stats.jpg" width="600">
+<img src="./public/setting.jpg" width="600">
 
 ## 技术栈
 
