@@ -3,25 +3,49 @@
     <div class="container">
       <div class="header-section">
         <h2>统计分析</h2>
-        <div class="period-tabs">
-          <button
-            :class="['tab-btn', { active: period === 'day' }]"
-            @click="changePeriod('day')"
-          >
-            今日
-          </button>
-          <button
-            :class="['tab-btn', { active: period === 'week' }]"
-            @click="changePeriod('week')"
-          >
-            本周
-          </button>
-          <button
-            :class="['tab-btn', { active: period === 'month' }]"
-            @click="changePeriod('month')"
-          >
-            本月
-          </button>
+        <div class="period-controls">
+          <div class="period-tabs">
+            <button
+              :class="[
+                'tab-btn',
+                { active: period === 'day' && !customDateRange },
+              ]"
+              @click="changePeriod('day')"
+            >
+              今日
+            </button>
+            <button
+              :class="[
+                'tab-btn',
+                { active: period === 'week' && !customDateRange },
+              ]"
+              @click="changePeriod('week')"
+            >
+              本周
+            </button>
+            <button
+              :class="[
+                'tab-btn',
+                { active: period === 'month' && !customDateRange },
+              ]"
+              @click="changePeriod('month')"
+            >
+              本月
+            </button>
+          </div>
+          <div class="date-picker-wrapper">
+            <el-date-picker
+              v-model="customDateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              @change="handleDateChange"
+              clearable
+            />
+          </div>
         </div>
       </div>
 
@@ -55,6 +79,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import * as echarts from "echarts";
 
 const period = ref("day");
+const customDateRange = ref(null);
 const tagStats = ref([]);
 const allTags = ref([]);
 const chartRef = ref(null);
@@ -87,29 +112,40 @@ async function loadTags() {
 
 async function loadStats() {
   if (window.electronAPI) {
-    // 根据period计算日期范围
+    // 根据period或自定义日期范围计算日期范围
     const filters = {};
     const now = new Date();
-    
-    if (period.value === 'day') {
-      const today = now.toISOString().split('T')[0];
-      filters.startDate = today;
-      filters.endDate = today;
-    } else if (period.value === 'week') {
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filters.startDate = weekAgo.toISOString().split('T')[0];
-      filters.endDate = now.toISOString().split('T')[0];
-    } else if (period.value === 'month') {
-      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      filters.startDate = monthAgo.toISOString().split('T')[0];
-      filters.endDate = now.toISOString().split('T')[0];
+
+    if (customDateRange.value && customDateRange.value.length === 2) {
+      // 使用自定义日期范围
+      filters.startDate = customDateRange.value[0];
+      filters.endDate = customDateRange.value[1];
+    } else {
+      // 使用预设时间段
+      if (period.value === "day") {
+        const today = now.toISOString().split("T")[0];
+        filters.startDate = today;
+        filters.endDate = today;
+      } else if (period.value === "week") {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        filters.startDate = weekAgo.toISOString().split("T")[0];
+        filters.endDate = now.toISOString().split("T")[0];
+      } else if (period.value === "month") {
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        filters.startDate = monthAgo.toISOString().split("T")[0];
+        filters.endDate = now.toISOString().split("T")[0];
+      }
     }
-    
+
     // 获取对应时间段的记录数量
     const records = await window.electronAPI.getRecords(filters);
     recordCount.value = records.length;
 
-    const rawData = await window.electronAPI.getStatsByTags(period.value);
+    // 获取统计数据
+    const statsParams = customDateRange.value
+      ? filters
+      : { period: period.value };
+    const rawData = await window.electronAPI.getStatsByTags(statsParams);
 
     // 处理数据，按标签聚合
     const tagMap = {};
@@ -164,7 +200,14 @@ const recordCount = ref(0);
 
 function changePeriod(newPeriod) {
   period.value = newPeriod;
+  customDateRange.value = null;
   loadStats();
+}
+
+function handleDateChange() {
+  if (customDateRange.value) {
+    loadStats();
+  }
 }
 
 const totalDuration = computed(() => {
@@ -315,9 +358,20 @@ function renderChart() {
   margin: 0;
 }
 
+.period-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .period-tabs {
   display: flex;
   gap: 8px;
+}
+
+.date-picker-wrapper {
+  display: flex;
+  align-items: center;
 }
 
 .tab-btn {

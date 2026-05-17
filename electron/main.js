@@ -9,14 +9,15 @@ function getCustomUserDataPath() {
 
   try {
     // 判断是否为开发环境
-    const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-    
+    const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
+
     if (isDev) {
       // 开发环境：使用项目目录下的 jilu-data
-      dataPath = path.join(process.cwd(), 'jilu-data');
+      dataPath = path.join(process.cwd(), "jilu-data");
     } else {
       // 生产环境：使用 exe 同级目录
-      const exePath = process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe");
+      const exePath =
+        process.env.PORTABLE_EXECUTABLE_FILE || app.getPath("exe");
       const exeDir = path.dirname(exePath);
       dataPath = path.join(exeDir, "jilu-data");
     }
@@ -169,38 +170,83 @@ ipcMain.handle("get-records", (event, filters) => {
   return stmt.all(...params);
 });
 
-ipcMain.handle("get-stats-by-tags", (event, period) => {
+ipcMain.handle("get-stats-by-tags", (event, params) => {
   let query = "";
-  const params = [];
+  const queryParams = [];
 
-  if (period === "day") {
+  if (params && params.startDate && params.endDate) {
+    // 使用自定义日期范围
     query = `
       SELECT tags, SUM(duration) as total_duration
       FROM time_records
-      WHERE date(start_time) = date('now', 'localtime')
+      WHERE date(start_time) >= date(?) AND date(start_time) <= date(?)
       GROUP BY tags
       ORDER BY total_duration DESC
     `;
-  } else if (period === "week") {
+    queryParams.push(params.startDate, params.endDate);
+  } else if (params && params.period) {
+    // 使用预设时间段
+    const period = params.period;
+    const now = new Date();
+
+    if (period === "day") {
+      const today = now.toISOString().split("T")[0];
+      query = `
+        SELECT tags, SUM(duration) as total_duration
+        FROM time_records
+        WHERE date(start_time) >= date(?) AND date(start_time) <= date(?)
+        GROUP BY tags
+        ORDER BY total_duration DESC
+      `;
+      queryParams.push(today, today);
+    } else if (period === "week") {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const startDate = weekAgo.toISOString().split("T")[0];
+      const endDate = now.toISOString().split("T")[0];
+      query = `
+        SELECT tags, SUM(duration) as total_duration
+        FROM time_records
+        WHERE date(start_time) >= date(?) AND date(start_time) <= date(?)
+        GROUP BY tags
+        ORDER BY total_duration DESC
+      `;
+      queryParams.push(startDate, endDate);
+    } else if (period === "month") {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const startDate = monthAgo.toISOString().split("T")[0];
+      const endDate = now.toISOString().split("T")[0];
+      query = `
+        SELECT tags, SUM(duration) as total_duration
+        FROM time_records
+        WHERE date(start_time) >= date(?) AND date(start_time) <= date(?)
+        GROUP BY tags
+        ORDER BY total_duration DESC
+      `;
+      queryParams.push(startDate, endDate);
+    } else {
+      // 未知的 period 值，默认查询今天
+      const today = now.toISOString().split("T")[0];
+      query = `
+        SELECT tags, SUM(duration) as total_duration
+        FROM time_records
+        WHERE date(start_time) >= date(?) AND date(start_time) <= date(?)
+        GROUP BY tags
+        ORDER BY total_duration DESC
+      `;
+      queryParams.push(today, today);
+    }
+  } else {
+    // 默认查询所有
     query = `
       SELECT tags, SUM(duration) as total_duration
       FROM time_records
-      WHERE date(start_time) >= date('now', '-7 days', 'localtime')
-      GROUP BY tags
-      ORDER BY total_duration DESC
-    `;
-  } else if (period === "month") {
-    query = `
-      SELECT tags, SUM(duration) as total_duration
-      FROM time_records
-      WHERE date(start_time) >= date('now', '-30 days', 'localtime')
       GROUP BY tags
       ORDER BY total_duration DESC
     `;
   }
 
   const stmt = db.prepare(query);
-  return stmt.all(...params);
+  return stmt.all(...queryParams);
 });
 
 ipcMain.handle("add-record", (event, record) => {
